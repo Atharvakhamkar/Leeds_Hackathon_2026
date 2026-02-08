@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><title>SignalChain | Operational Command</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #2563eb; --dark: #0f172a; --bg: #f8fafc; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; color: #1e293b; }
+        header { background: white; padding: 20px 40px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        main { max-width: 1300px; margin: 0 auto; padding: 30px; }
+        .grid { display: grid; gap: 24px; }
+        .grid-4 { grid-template-columns: repeat(4, 1fr); }
+        .grid-2 { grid-template-columns: repeat(2, 1fr); }
+        .card { background: white; padding: 25px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); position: relative; }
+        .stat-label { font-size: 12px; color: #64748b; font-weight: 700; text-transform: uppercase; }
+        .stat-value { font-size: 28px; font-weight: 900; margin: 8px 0; }
+        .status { font-size: 12px; font-weight: 700; padding: 4px 8px; border-radius: 6px; }
+        .pos { background: #dcfce7; color: #166534; }
+        .neg { background: #fee2e2; color: #991b1b; }
+        .btn { background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 10px; cursor: pointer; font-weight: 700; }
+        .progress-bar { width: 100%; height: 12px; background: #f1f5f9; border-radius: 10px; overflow: hidden; margin-top: 10px; }
+        .progress-fill { height: 100%; transition: width 1s ease-in-out; }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .legend-box { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+        .legend-tag { display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; border: 1px solid #e2e8f0; padding: 2px 6px; border-radius: 4px; background: #fff; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .story-box { background: var(--dark); color: white; padding: 40px; border-radius: 24px; margin-top: 30px; }
+        .pipeline { display: flex; justify-content: space-between; margin: 40px 0; position: relative; }
+        .pipeline::after { content: ''; position: absolute; top: 20px; left: 10%; right: 10%; height: 2px; background: #334155; }
+        .step { flex: 1; text-align: center; position: relative; z-index: 1; }
+        .step-circle { width: 40px; height: 40px; border-radius: 50%; background: #1e293b; border: 2px solid #334155; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; }
+        .step.done .step-circle { background: #22c55e; border-color: #22c55e; color: white; }
+        .step.fail .step-circle { background: #ef4444; border-color: #ef4444; color: white; box-shadow: 0 0 15px #ef4444; }
+        .step.active .step-circle { background: var(--primary); border-color: var(--primary); color: white; }
+        
+        /* Popup Chat */
+        #chatToggle { position:fixed; bottom:25px; right:25px; width:60px; height:60px; border-radius:50%; background:var(--primary); color:white; border:none; cursor:pointer; box-shadow:0 6px 16px rgba(0,0,0,0.2); font-size:26px; z-index:1000; }
+        #chatWindow { display:none; position:fixed; bottom:100px; right:25px; width:350px; height:480px; background:white; border-radius:20px; box-shadow:0 12px 30px rgba(0,0,0,0.15); flex-direction:column; overflow:hidden; z-index:1000; border:1px solid #e2e8f0; }
+        .user-msg { background:var(--primary); color:white; padding:10px 14px; border-radius:15px 15px 0 15px; align-self:flex-end; max-width:80%; font-size:13px; margin: 4px 0; }
+        .bot-msg { background:#f1f5f9; color:#1e293b; padding:10px 14px; border-radius:15px 15px 15px 0; align-self:flex-start; max-width:80%; font-size:13px; margin: 4px 0; border: 1px solid #e2e8f0; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div style="font-weight:900; color:var(--primary); font-size:24px;">SIGNALCHAIN.AI</div>
+    <div style="display:flex; gap:10px;">
+        <button class="btn" style="background:#64748b;" onclick="location.href='customer.html'">Logout</button>
+    </div>
+</header>
+
+<main>
+    <div class="grid grid-4" id="stats"></div>
+
+    <div class="grid grid-2" style="margin-top: 30px;">
+        <div class="card">
+            <div class="card-header">
+                <strong>Volatility Trend</strong>
+                <div id="trendLegend" class="legend-box"></div>
+            </div>
+            <canvas id="riskChart" height="180"></canvas>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <strong>Mode Performance Split</strong>
+                <div id="modeLegend" class="legend-box"></div>
+            </div>
+            <div id="modeBars" style="margin-top:15px;"></div>
+        </div>
+    </div>
+
+    <div style="margin: 40px 0 20px; font-weight:900; font-size:20px;">Risk Mitigation Alerts</div>
+    <div class="grid grid-2" id="alerts"></div>
+
+    <div class="story-box">
+        <h2>Order Intelligence Storyline</h2>
+        <div style="display:flex; gap:15px; margin-top:20px;">
+            <input id="orderId" placeholder="Order ID" style="flex:1; padding:15px; border-radius:12px; border:none; background:#1e293b; color:white;">
+            <button class="btn" onclick="predict()">Analyze Journey</button>
+        </div>
+        <div id="journeyUI" style="display:none; margin-top:30px;">
+            <div class="pipeline" id="pipe"></div>
+            <p id="narration" style="text-align:center; color:#94a3b8; font-style:italic; font-size:16px;"></p>
+        </div>
+    </div>
+</main>
+
+<button id="chatToggle" onclick="toggleChat()">💬</button>
+<div id="chatWindow">
+    <div style="background:var(--dark); color:white; padding:18px; font-weight:800; display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:8px; height:8px; background:#22c55e; border-radius:50%;"></div> Assistant
+        </div>
+        <button onclick="toggleChat()" style="background:none; border:none; color:white; cursor:pointer;">✕</button>
+    </div>
+    <div id="chatMessages" style="flex:1; padding:20px; overflow-y:auto; display:flex; flex-direction:column; background: #fafafa;">
+        <div class="bot-msg">System Online. How can I assist with your logistics data?</div>
+    </div>
+    <div style="padding:15px; border-top:1px solid #e2e8f0; display:flex; gap:8px; background:white;">
+        <input id="chatInput" placeholder="Ask about risks..." style="flex:1; padding:12px; border-radius:10px; border:1px solid #e2e8f0; outline:none; font-size:13px;">
+        <button onclick="sendMessage()" class="btn" style="padding:0 15px;">Send</button>
+    </div>
+</div>
+
+<script>
+    let trendChart;
+
+    async function init() {
+        // 1. Fetch Stats (Now returns 4 items)
+        const s = await (await fetch("http://127.0.0.1:8000/stats")).json();
+        const statsContainer = document.getElementById('stats');
+        
+        // This dynamically builds the 4 boxes
+        statsContainer.innerHTML = s.map(k => `
+            <div class="card">
+                <div class="stat-label">${k.label}</div>
+                <div class="stat-value" style="font-size: 24px;">${k.value}</div>
+                <span class="status ${k.pos?'pos':'neg'}">${k.change}</span>
+            </div>`).join('');
+
+        // 2. Load Mode Split
+        const m = await (await fetch("http://127.0.0.1:8000/mode-split")).json();
+        document.getElementById('modeLegend').innerHTML = Object.entries(m).map(([name, data]) => `
+            <div class="legend-tag"><div class="dot" style="background:${data.color}"></div>${name}</div>
+        `).join('');
+
+        document.getElementById('modeBars').innerHTML = Object.entries(m).map(([k, v]) => `
+            <div style="margin-bottom:15px;">
+                <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:800;">
+                    <span>${k.toUpperCase()}</span><span>${v.value.toFixed(1)}% RISK</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" style="width:${v.value}%; background:${v.color};"></div></div>
+            </div>`).join('');
+
+        // 3. Load Alerts
+        loadWarnings();
+
+        // 4. Load Trend Chart
+        const t = await (await fetch("http://127.0.0.1:8000/trend-data")).json();
+
+        const riskLevels = {
+        "Low(<20%)": "#22c55e", 
+        "Moderate(20-35%)": "#facc15", 
+        "Critical(>35%)": "#ef4444"
+    };
+
+    document.getElementById('trendLegend').innerHTML = Object.entries(riskLevels).map(([label, color]) => `
+        <div class="legend-tag">
+            <div class="dot" style="background:${color}"></div>
+            ${label}
+        </div>
+    `).join('');
+    
+        const ctx = document.getElementById('riskChart').getContext('2d');
+        if(trendChart) trendChart.destroy();
+        trendChart = new Chart(ctx, { 
+            type: 'bar', 
+            data: { labels: t.labels, datasets: [{ data: t.values, backgroundColor: t.colors, borderRadius: 8 }] }, 
+            options: { 
+            plugins: { legend: { display: false } }, 
+            scales: { 
+                y: { 
+                    display: true,
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) { return value + "%" }
+                    },
+                    grid: { color: '#f1f5f9' }
+                }, 
+                x: { grid: { display: false } } 
+            } 
+        } 
+        });
+    }
+
+    async function loadWarnings() {
+        const res = await fetch("http://127.0.0.1:8000/warnings");
+        const data = await res.json();
+        document.getElementById('alerts').innerHTML = data.map(i => `
+            <div class="card" style="border-left:5px solid #ef4444;">
+                <div style="display:flex; justify-content:space-between;">
+                    <strong>Order #${i.id}</strong>
+                    <span style="color:#ef4444; font-weight:900;">${i.score} RISK</span>
+                </div>
+                <p style="font-size:12px; color:#64748b; margin:10px 0;">Method: ${i.method} | Bottleneck Detected</p>
+                <button class="btn" onclick="confirmReroute(${i.id})" style="width:100%; padding:8px; font-size:12px;">Trigger Recovery</button>
+            </div>`).join('');
+    }
+
+    async function confirmReroute(orderId) {
+        if (confirm(`Trigger AI Rerouting for Order #${orderId}?`)) {
+            await fetch(`http://127.0.0.1:8000/reroute/${orderId}`, { method: 'POST' });
+            init(); // Refreshes stats (including Transit Time) and Warnings
+        }
+    }
+
+    // Function to handle the Reroute Action
+    async function confirmReroute(orderId) {
+        const confirmed = confirm(`AI Recommendation: Reroute Order #${orderId} to bypass delay?\nThis will update global Risk Exposure stats.`);
+        if (confirmed) {
+            try {
+                const res = await fetch(`http://127.0.0.1:8000/reroute/${orderId}`, { method: 'POST' });
+                const data = await res.json();
+                alert(data.msg);
+                
+                // REFRESH EVERYTHING: Update top stats AND the alert list
+                init(); 
+            } catch (e) {
+                alert("Action failed. Server connection error.");
+            }
+        }
+    }
+
+    async function predict() {
+        const id = document.getElementById('orderId').value;
+        if(!id) return alert("Enter an Order ID");
+        const d = await (await fetch(`http://127.0.0.1:8000/story/${id}`)).json();
+        if(d.error) return alert(d.error);
+
+        document.getElementById('journeyUI').style.display = "block";
+        document.getElementById('narration').innerText = d.story;
+        
+        const steps = Object.entries(d.timeline);
+        document.getElementById('pipe').innerHTML = steps.map(([name, date], i) => {
+            let cls = "done";
+            if(d.status === "delayed" && i >= 2) cls = "fail";
+            else if (i === 3) cls = "active";
+            return `<div class="step ${cls}"><div class="step-circle">${i+1}</div><div style="font-size:11px;">${name}</div><div style="font-size:10px; color:#94a3b8;">${date}</div></div>`;
+        }).join('');
+    }
+
+    function toggleChat() {
+        const win = document.getElementById('chatWindow');
+        win.style.display = win.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('chatInput');
+        const msgArea = document.getElementById('chatMessages');
+        if (!input.value.trim()) return;
+        msgArea.innerHTML += `<div class="user-msg">${input.value}</div>`;
+        const text = input.value.toLowerCase();
+        input.value = '';
+        setTimeout(() => {
+            let reply = "Monitoring live routes. Type 'risk' for details.";
+            if (text.includes("risk")) reply = "Road and Air routes currently show high volatility.";
+            msgArea.innerHTML += `<div class="bot-msg">${reply}</div>`;
+            msgArea.scrollTop = msgArea.scrollHeight;
+        }, 600);
+    }
+
+    init();
+</script>
+</body>
+</html>

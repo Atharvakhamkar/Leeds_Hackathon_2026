@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><title>SignalChain | Track Shipment</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #2563eb; --dark: #0f172a; --bg: #f8fafc; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; color: #1e293b; }
+        header { background: white; padding: 20px 40px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        main { max-width: 900px; margin: 50px auto; padding: 0 20px; }
+        .card { background: white; padding: 30px; border-radius: 20px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align: center; }
+        .input-group { display: flex; gap: 10px; margin-top: 20px; }
+        input { flex: 1; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; outline: none; font-size: 16px; }
+        .btn { background: var(--primary); color: white; border: none; padding: 15px 30px; border-radius: 12px; cursor: pointer; font-weight: 700; }
+        
+        /* Storyline Styles (Exact copy from index) */
+        .story-box { background: var(--dark); color: white; padding: 40px; border-radius: 24px; margin-top: 40px; text-align: left; }
+        .pipeline { display: flex; justify-content: space-between; margin: 40px 0; position: relative; }
+        .pipeline::after { content: ''; position: absolute; top: 20px; left: 10%; right: 10%; height: 2px; background: #334155; }
+        .step { flex: 1; text-align: center; position: relative; z-index: 1; }
+        .step-circle { width: 40px; height: 40px; border-radius: 50%; background: #1e293b; border: 2px solid #334155; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; }
+        .step.done .step-circle { background: #22c55e; border-color: #22c55e; color: white; }
+        .step.fail .step-circle { background: #ef4444; border-color: #ef4444; color: white; box-shadow: 0 0 15px #ef4444; }
+        .step.active .step-circle { background: var(--primary); border-color: var(--primary); color: white; }
+        /* Popup Chat */
+        #chatToggle { position:fixed; bottom:25px; right:25px; width:60px; height:60px; border-radius:50%; background:var(--primary); color:white; border:none; cursor:pointer; box-shadow:0 6px 16px rgba(0,0,0,0.2); font-size:26px; z-index:1000; }
+        #chatWindow { display:none; position:fixed; bottom:100px; right:25px; width:350px; height:480px; background:white; border-radius:20px; box-shadow:0 12px 30px rgba(0,0,0,0.15); flex-direction:column; overflow:hidden; z-index:1000; border:1px solid #e2e8f0; }
+        .user-msg { background:var(--primary); color:white; padding:10px 14px; border-radius:15px 15px 0 15px; align-self:flex-end; max-width:80%; font-size:13px; margin: 4px 0; }
+        .bot-msg { background:#f1f5f9; color:#1e293b; padding:10px 14px; border-radius:15px 15px 15px 0; align-self:flex-start; max-width:80%; font-size:13px; margin: 4px 0; border: 1px solid #e2e8f0; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div style="font-weight:900; color:var(--primary); font-size:24px;">SIGNALCHAIN.AI</div>
+    <button class="btn" onclick="location.href='login.html'" style="padding: 8px 15px; font-size: 12px;">Login/SignUp</button>
+</header>
+
+<main>
+    <div class="card">
+        <h1>Track Your Order</h1>
+        <p style="color:#64748b;">Enter your unique Order ID to see your shipment's journey.</p>
+        <div class="input-group">
+            <input type="text" id="orderId" placeholder="e.g. 10452">
+            <button class="btn" onclick="trackOrder()">Track Journey</button>
+        </div>
+    </div>
+
+    
+    <div id="journeyUI" class="story-box" style="display: none;">
+        <h2 style="margin: 0;">Shipment Intelligence Storyline</h2>
+        <div class="pipeline" id="pipe"></div>
+        <p id="narration" style="text-align:center; color:#94a3b8; font-style:italic; font-size:16px;"></p>
+    </div>
+</main>
+<button id="chatToggle" onclick="toggleChat()">💬</button>
+<div id="chatWindow">
+    <div style="background:var(--dark); color:white; padding:18px; font-weight:800; display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:8px; height:8px; background:#22c55e; border-radius:50%;"></div> Assistant
+        </div>
+        <button onclick="toggleChat()" style="background:none; border:none; color:white; cursor:pointer;">✕</button>
+    </div>
+    <div id="chatMessages" style="flex:1; padding:20px; overflow-y:auto; display:flex; flex-direction:column; background: #fafafa;">
+        <div class="bot-msg">System Online. How can I assist with your logistics data?</div>
+    </div>
+    <div style="padding:15px; border-top:1px solid #e2e8f0; display:flex; gap:8px; background:white;">
+        <input id="chatInput" placeholder="Ask about risks..." style="flex:1; padding:12px; border-radius:10px; border:1px solid #e2e8f0; outline:none; font-size:13px;">
+        <button onclick="sendMessage()" class="btn" style="padding:0 15px;">Send</button>
+    </div>
+</div>
+
+<script>
+    async function trackOrder() {
+        const id = document.getElementById('orderId').value.trim();
+        const journeyUI = document.getElementById('journeyUI');
+        
+        if(!id) return alert("Please enter an Order ID");
+
+        try {
+            const res = await fetch(`http://127.0.0.1:8000/story/${id}`);
+            const d = await res.json();
+
+            if(d.error) {
+                alert("Order not found. Please try a different ID.");
+                journeyUI.style.display = "none";
+                return;
+            }
+
+            // Reveal the box
+            journeyUI.style.display = "block";
+            document.getElementById('narration').innerText = d.story;
+            
+            const steps = Object.entries(d.timeline);
+            document.getElementById('pipe').innerHTML = steps.map(([name, status], i) => {
+                let cls = "done";
+                if(d.status === "delayed" && i >= 2) cls = "fail";
+                else if (i === 3) cls = "active";
+                return `
+                    <div class="step ${cls}">
+                        <div class="step-circle">${i+1}</div>
+                        <div style="font-size:11px; font-weight:700;">${name}</div>
+                        <div style="font-size:10px; color:#94a3b8;">${status}</div>
+                    </div>`;
+            }).join('');
+
+        } catch (error) {
+            alert("Connection error: Is your Python server running?");
+        }
+    }
+    function toggleChat() {
+        const win = document.getElementById('chatWindow');
+        win.style.display = win.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('chatInput');
+        const msgArea = document.getElementById('chatMessages');
+        if (!input.value.trim()) return;
+        msgArea.innerHTML += `<div class="user-msg">${input.value}</div>`;
+        const text = input.value.toLowerCase();
+        input.value = '';
+        setTimeout(() => {
+            let reply = "Monitoring live routes. Type 'risk' for details.";
+            if (text.includes("risk")) reply = "Road and Air routes currently show high volatility.";
+            msgArea.innerHTML += `<div class="bot-msg">${reply}</div>`;
+            msgArea.scrollTop = msgArea.scrollHeight;
+        }, 600);
+    }
+</script>
+</body>
+</html>
